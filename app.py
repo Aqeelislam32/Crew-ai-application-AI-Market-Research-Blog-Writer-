@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 from crewai import LLM, Agent, Crew, Process, Task
 from crewai.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun
+from ddgs import DDGS
 
 # ----------------------------------------------------------------------------
 # Page config
@@ -37,9 +37,6 @@ PROVIDERS = {
 
 CSS = """
 <style>
-/* ========================================
-   COLOR SYSTEM & DESIGN TOKENS
-   ======================================== */
 :root {
     --bg-main: #F1F5F9;
     --bg-sidebar: #FFFFFF;
@@ -67,27 +64,38 @@ CSS = """
     --transition: 150ms ease;
 }
 
-/* ========================================
-   GLOBAL STYLES
-   ======================================== */
 .stApp {
     background-color: var(--bg-main);
     color: var(--text-dark);
 }
 
-.stApp, h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div[data-testid="stMarkdownContainer"] {
+.stApp, h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText,
+div[data-testid="stMarkdownContainer"] {
     color: var(--text-dark) !important;
 }
 
-/* Typography */
-h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
-h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
-h3 { font-size: 1.125rem; font-weight: 600; }
-h4 { font-size: 1rem; font-weight: 600; }
+h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
 
-/* ========================================
-   SIDEBAR
-   ======================================== */
+h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+h4 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
 [data-testid="stSidebar"] {
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--border-light);
@@ -101,7 +109,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     color: var(--text-dark) !important;
 }
 
-/* Sidebar brand */
 .sidebar-brand {
     font-size: 1.5rem;
     font-weight: 700;
@@ -116,7 +123,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     margin-bottom: 1.5rem;
 }
 
-/* Sidebar section headers */
 .sidebar-section {
     font-size: 0.75rem;
     font-weight: 600;
@@ -127,7 +133,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     margin-top: 1.5rem;
 }
 
-/* Radio buttons - provider selection */
 [data-testid="stSidebar"] .stRadio > label {
     font-weight: 600;
     color: var(--text-dark) !important;
@@ -159,16 +164,12 @@ h4 { font-size: 1rem; font-weight: 600; }
     color: var(--primary) !important;
 }
 
-/* Selectbox in sidebar */
 [data-testid="stSidebar"] .stSelectbox label {
     font-weight: 500;
     color: var(--text-secondary) !important;
     font-size: 0.875rem;
 }
 
-/* ========================================
-   API KEY CARD (Secure Config Style)
-   ======================================== */
 .api-key-card {
     background: var(--bg-card);
     border: 1px solid var(--border-light);
@@ -230,10 +231,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     word-break: break-all;
 }
 
-/* ========================================
-   BUTTONS
-   ======================================== */
-/* Primary buttons */
 .stButton > button[kind="primary"],
 .stButton > button:not([kind]):not([data-testid="baseButton-secondary"]),
 .stDownloadButton > button {
@@ -264,7 +261,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     box-shadow: var(--shadow-sm) !important;
 }
 
-/* Focus states */
 .stButton > button:focus,
 .stButton > button:focus-visible,
 .stDownloadButton > button:focus,
@@ -273,7 +269,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3) !important;
 }
 
-/* Secondary buttons */
 .stButton > button[data-testid="baseButton-secondary"],
 .stButton > button[kind="secondary"] {
     background-color: transparent !important;
@@ -293,7 +288,6 @@ h4 { font-size: 1rem; font-weight: 600; }
     border-color: var(--border) !important;
 }
 
-/* Save API Key button in sidebar */
 div[data-testid="stSidebar"] .stButton > button:has(span:contains("Save")),
 div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")) {
     background-color: var(--primary) !important;
@@ -314,9 +308,6 @@ div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")):hover 
     transform: translateY(-1px);
 }
 
-/* ========================================
-   INPUTS, SELECTBOXES, TEXTAREAS
-   ======================================== */
 .stTextInput > div > div > input,
 .stTextArea > div > textarea,
 .stSelectbox > div > div[data-baseweb="select"],
@@ -352,7 +343,6 @@ div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")):hover 
     font-size: 0.875rem !important;
 }
 
-/* Textarea specific */
 .stTextArea > div > textarea {
     min-height: 120px !important;
     resize: vertical !important;
@@ -360,7 +350,6 @@ div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")):hover 
     line-height: 1.6 !important;
 }
 
-/* Selectbox dropdown */
 .stSelectbox > div > div[data-baseweb="select"] > div {
     background-color: var(--bg-card) !important;
 }
@@ -375,9 +364,6 @@ div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")):hover 
     color: var(--primary) !important;
 }
 
-/* ========================================
-   CARDS & CONTAINERS
-   ======================================== */
 .card {
     background: var(--bg-card);
     border: 1px solid var(--border-light);
@@ -404,7 +390,6 @@ div[data-testid="stSidebar"] .stButton > button:has(span:contains("Add")):hover 
     line-height: 1.6;
 }
 
-/* Streamlit container with border */
 div[data-testid="stContainer"][border="true"],
 div.stContainer > div[style*="border"] {
     border: 1px solid var(--border-light) !important;
@@ -413,9 +398,6 @@ div.stContainer > div[style*="border"] {
     box-shadow: var(--shadow-sm) !important;
 }
 
-/* ========================================
-   BADGES & TAGS
-   ======================================== */
 .badge {
     display: inline-flex;
     align-items: center;
@@ -435,9 +417,6 @@ div.stContainer > div[style*="border"] {
     border-color: var(--border-light);
 }
 
-/* ========================================
-   WORKFLOW STEPS
-   ======================================== */
 .workflow-container {
     display: flex;
     align-items: center;
@@ -468,13 +447,35 @@ div.stContainer > div[style*="border"] {
     transform: translateY(-2px);
 }
 
-/* Individual step accent colors - light tinted backgrounds with left borders */
-.workflow-step.step-1 { border-left: 4px solid var(--primary); background: #EEF2FF; }
-.workflow-step.step-2 { border-left: 4px solid var(--ai-accent); background: #F5F3FF; }
-.workflow-step.step-3 { border-left: 4px solid #3B82F6; background: #EFF6FF; }
-.workflow-step.step-4 { border-left: 4px solid #A855F7; background: #FAF5FF; }
-.workflow-step.step-5 { border-left: 4px solid var(--primary); background: #EEF2FF; }
-.workflow-step.step-6 { border-left: 4px solid var(--success); background: #ECFDF5; }
+.workflow-step.step-1 {
+    border-left: 4px solid var(--primary);
+    background: #EEF2FF;
+}
+
+.workflow-step.step-2 {
+    border-left: 4px solid var(--ai-accent);
+    background: #F5F3FF;
+}
+
+.workflow-step.step-3 {
+    border-left: 4px solid #3B82F6;
+    background: #EFF6FF;
+}
+
+.workflow-step.step-4 {
+    border-left: 4px solid #A855F7;
+    background: #FAF5FF;
+}
+
+.workflow-step.step-5 {
+    border-left: 4px solid var(--primary);
+    background: #EEF2FF;
+}
+
+.workflow-step.step-6 {
+    border-left: 4px solid var(--success);
+    background: #ECFDF5;
+}
 
 .workflow-arrow {
     flex: 0 0 auto;
@@ -484,13 +485,16 @@ div.stContainer > div[style*="border"] {
     padding: 0 0.25rem;
 }
 
-/* ========================================
-   STATUS MESSAGES
-   ======================================== */
-.status-ok { color: var(--success); font-weight: 600; }
-.status-no { color: var(--danger); font-weight: 600; }
+.status-ok {
+    color: var(--success);
+    font-weight: 600;
+}
 
-/* Success/Error/Warning/Info toasts */
+.status-no {
+    color: var(--danger);
+    font-weight: 600;
+}
+
 .stAlert {
     border-radius: var(--radius) !important;
     border: none !important;
@@ -517,9 +521,6 @@ div.stContainer > div[style*="border"] {
     color: var(--primary) !important;
 }
 
-/* ========================================
-   STATUS CONTAINER (running agents)
-   ======================================== */
 .stStatusWidget {
     background: var(--bg-card) !important;
     border: 1px solid var(--border-light) !important;
@@ -531,25 +532,19 @@ div.stContainer > div[style*="border"] {
     color: var(--text-dark) !important;
 }
 
-/* ========================================
-   DIVIDER
-   ======================================== */
-hr, .stDivider {
+hr,
+.stDivider {
     border-color: var(--border-light) !important;
     margin: 1.5rem 0 !important;
 }
 
-/* ========================================
-   CAPTIONS & SMALL TEXT
-   ======================================== */
-.stCaption, .caption, small {
+.stCaption,
+.caption,
+small {
     color: var(--text-muted) !important;
     font-size: 0.75rem !important;
 }
 
-/* ========================================
-   SUBTITLE
-   ======================================== */
 .subtitle {
     color: var(--text-secondary) !important;
     font-size: 1.125rem !important;
@@ -558,9 +553,6 @@ hr, .stDivider {
     line-height: 1.5;
 }
 
-/* ========================================
-   EXPANDER
-   ======================================== */
 .streamlit-expanderHeader {
     background-color: var(--bg-card) !important;
     border: 1px solid var(--border-light) !important;
@@ -580,22 +572,18 @@ hr, .stDivider {
     background: var(--bg-main) !important;
 }
 
-/* ========================================
-   CODE BLOCKS
-   ======================================== */
-code, .stCodeBlock, pre {
+code,
+.stCodeBlock,
+pre {
     background-color: var(--bg-main) !important;
     border: 1px solid var(--border-light) !important;
     border-radius: var(--radius) !important;
     color: var(--text-dark) !important;
 }
 
-/* ========================================
-   DOWNLOAD BUTTON (already covered but ensuring)
-   ======================================== */
 .stDownloadButton > button {
     background-color: #8B4513 !important;
-    color: #FFFFFF !important; /* Text color white ke liye */
+    color: #FFFFFF !important;
 }
 
 .stDownloadButton > button:hover {
@@ -603,27 +591,24 @@ code, .stCodeBlock, pre {
     opacity: 1 !important;
 }
 
-/* ========================================
-   SCROLLBAR
-   ======================================== */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
+
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
 
-/* ========================================
-   RESPONSIVE
-   ======================================== */
 @media (max-width: 768px) {
     .workflow-step {
         min-width: 140px;
@@ -632,19 +617,6 @@ code, .stCodeBlock, pre {
     }
 }
 
-/* ========================================
-   COLOR OVERRIDES (Brown buttons + results background)
-   ======================================== */
-.stApp div[class*="st-key-del_"] .stButton > button,
-.stApp div[class*="st-key-start_research"] .stButton > button {
-    background-color: #8B5E3C !important;
-    border: none !important;
-    color: #FFFFFF !important;
-}
-
-/* ========================================
-   COLOR OVERRIDES (Brown buttons + results background)
-   ======================================== */
 .stApp div[class*="st-key-del_"] .stButton > button,
 .stApp div[class*="st-key-save_"] .stButton > button,
 .stApp div[class*="st-key-start_research"] .stButton > button {
@@ -673,8 +645,6 @@ code, .stCodeBlock, pre {
 .stApp div[class*="st-key-blog_post_box"] {
     background-color: #FBFBF9 !important;
 }
-
-
 </style>
 """
 
@@ -692,6 +662,7 @@ def initialize_session_state():
         "blog_result": "",
         "save_error": "",
     }
+
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
@@ -700,31 +671,49 @@ def initialize_session_state():
 def mask_api_key(key: str) -> str:
     if not key:
         return ""
+
     prefix = "sk-" if key.startswith("sk-") else key[:4]
     suffix = key[-4:] if len(key) > 8 else ""
+
     return f"{prefix}{'*' * 12}{suffix}"
 
 
 def save_api_key(provider: str):
     cfg = PROVIDERS[provider]
     value = st.session_state.get(cfg["input_key"], "").strip()
+
     if not value:
-        st.session_state["key_msg"] = ("warning", "Please enter an API key first.")
+        st.session_state["key_msg"] = (
+            "warning",
+            "Please enter an API key first.",
+        )
         return
-    st.session_state[cfg["state_key"]] = value  # only this provider's key
-    st.session_state[cfg["input_key"]] = ""  # clear the input widget
-    st.session_state["key_msg"] = ("success", f"{provider} API key saved.")
+
+    st.session_state[cfg["state_key"]] = value
+    st.session_state[cfg["input_key"]] = ""
+    st.session_state["key_msg"] = (
+        "success",
+        f"{provider} API key saved.",
+    )
 
 
 def delete_api_key(provider: str):
     cfg = PROVIDERS[provider]
-    st.session_state[cfg["state_key"]] = ""  # only this provider's key
+
+    st.session_state[cfg["state_key"]] = ""
     st.session_state[cfg["input_key"]] = ""
-    st.session_state["key_msg"] = ("info", f"{provider} API key deleted.")
+
+    st.session_state["key_msg"] = (
+        "info",
+        f"{provider} API key deleted.",
+    )
 
 
 def current_api_key() -> str:
-    return st.session_state.get(PROVIDERS[st.session_state.selected_provider]["state_key"], "")
+    return st.session_state.get(
+        PROVIDERS[st.session_state.selected_provider]["state_key"],
+        "",
+    )
 
 
 # ----------------------------------------------------------------------------
@@ -732,10 +721,20 @@ def current_api_key() -> str:
 # ----------------------------------------------------------------------------
 def render_sidebar():
     with st.sidebar:
-        st.markdown(f"<div class='sidebar-brand'>{APP_NAME}</div>", unsafe_allow_html=True)
-        st.markdown("<div class='sidebar-subtitle'>Multi-Agent AI Platform</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='sidebar-brand'>{APP_NAME}</div>",
+            unsafe_allow_html=True,
+        )
 
-        st.markdown("<div class='sidebar-section'>Provider</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='sidebar-subtitle'>Multi-Agent AI Platform</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            "<div class='sidebar-section'>Provider</div>",
+            unsafe_allow_html=True,
+        )
 
         provider = st.radio(
             "Provider",
@@ -743,14 +742,27 @@ def render_sidebar():
             key="selected_provider",
             label_visibility="collapsed",
         )
+
         cfg = PROVIDERS[provider]
 
-        st.markdown("<div class='sidebar-section'>Model</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='sidebar-section'>Model</div>",
+            unsafe_allow_html=True,
+        )
 
-        model = st.selectbox("Model", cfg["models"], key=f"model_select_{provider}", label_visibility="collapsed")
+        model = st.selectbox(
+            "Model",
+            cfg["models"],
+            key=f"model_select_{provider}",
+            label_visibility="collapsed",
+        )
+
         st.session_state.selected_model = model
 
-        st.markdown("<div class='sidebar-section'>API Key</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='sidebar-section'>API Key</div>",
+            unsafe_allow_html=True,
+        )
 
         saved_key = st.session_state[cfg["state_key"]]
 
@@ -769,7 +781,14 @@ def render_sidebar():
                 """,
                 unsafe_allow_html=True,
             )
-            st.button("Delete API Key", key=f"del_{provider}", on_click=delete_api_key, args=(provider,))
+
+            st.button(
+                "Delete API Key",
+                key=f"del_{provider}",
+                on_click=delete_api_key,
+                args=(provider,),
+            )
+
         else:
             st.text_input(
                 cfg["placeholder"],
@@ -778,6 +797,7 @@ def render_sidebar():
                 placeholder=cfg["placeholder"],
                 label_visibility="collapsed",
             )
+
             st.markdown(
                 """
                 <div class="api-key-card" style="margin-top: 0.5rem;">
@@ -788,25 +808,42 @@ def render_sidebar():
                 """,
                 unsafe_allow_html=True,
             )
-            st.button("Add / Save API Key", key=f"save_{provider}", on_click=save_api_key, args=(provider,))
+
+            st.button(
+                "Add / Save API Key",
+                key=f"save_{provider}",
+                on_click=save_api_key,
+                args=(provider,),
+            )
 
         msg = st.session_state.pop("key_msg", None)
+
         if msg:
             getattr(st, msg[0])(msg[1])
 
         st.divider()
+
         st.markdown(f"**Current Provider:** {provider}")
         st.markdown(f"**Current Model:** {model}")
-        st.caption("Keys live only in this browser session's memory and are never written to disk.")
+
+        st.caption(
+            "Keys live only in this browser session's memory and are never written to disk."
+        )
 
 
 def render_header():
-    st.markdown(f"<span class='badge'>{APP_NAME}</span>", unsafe_allow_html=True)
+    st.markdown(
+        f"<span class='badge'>{APP_NAME}</span>",
+        unsafe_allow_html=True,
+    )
+
     st.title("AI Market Research & Blog Writer")
+
     st.markdown(
         "<p class='subtitle'>Multi-Agent AI Research & Content Generation Platform</p>",
         unsafe_allow_html=True,
     )
+
     st.markdown(
         f"""
         <div class="card">
@@ -826,6 +863,7 @@ def render_header():
 
 def render_workflow():
     st.markdown("### Multi-Agent Workflow")
+
     steps = [
         "User Query",
         "Market Research Analyst",
@@ -834,13 +872,21 @@ def render_workflow():
         "Content Writer",
         "Final Blog Post",
     ]
+
     step_html = '<div class="workflow-container">'
+
     for i, step in enumerate(steps):
         step_num = i + 1
-        step_html += f'<div class="workflow-step step-{step_num}">{step}</div>'
+
+        step_html += (
+            f'<div class="workflow-step step-{step_num}">{step}</div>'
+        )
+
         if i < len(steps) - 1:
             step_html += '<div class="workflow-arrow">→</div>'
-    step_html += '</div>'
+
+    step_html += "</div>"
+
     st.markdown(step_html, unsafe_allow_html=True)
 
 
@@ -852,23 +898,65 @@ def get_selected_llm() -> LLM:
     cfg = PROVIDERS[provider]
     model = st.session_state.selected_model
     api_key = st.session_state[cfg["state_key"]]
+
     if provider == "Google Gemini":
-        return LLM(model=f"gemini/{model}", api_key=api_key)
+        return LLM(
+            model=f"gemini/{model}",
+            api_key=api_key,
+        )
+
     if provider == "OpenAI":
-        return LLM(model=f"openai/{model}", api_key=api_key)
+        return LLM(
+            model=f"openai/{model}",
+            api_key=api_key,
+        )
+
     raise ValueError(f"Unsupported provider: {provider}")
 
 
 def create_web_search_tool():
-    search = DuckDuckGoSearchRun()
+    """
+    Direct DuckDuckGo/DDGS web search.
+
+    Unlike the previous implementation, search errors are raised instead
+    of being returned as normal text. This prevents CrewAI from treating
+    a search error as valid research content.
+    """
 
     @tool("Web Search Tool")
     def web_search_tool(query: str) -> str:
         """Search the web for the latest AI industry news and information."""
+
         try:
-            return search.run(query)
-        except Exception as exc:  # keep the agent running if search fails
-            return f"Web search failed: {exc}"
+            results = DDGS().text(
+                query,
+                max_results=5,
+            )
+
+            if not results:
+                raise RuntimeError(
+                    "No web search results were returned."
+                )
+
+            formatted_results = []
+
+            for result in results:
+                title = result.get("title", "")
+                body = result.get("body", "")
+                href = result.get("href", "")
+
+                formatted_results.append(
+                    f"Title: {title}\n"
+                    f"Summary: {body}\n"
+                    f"URL: {href}"
+                )
+
+            return "\n\n".join(formatted_results)
+
+        except Exception as exc:
+            raise RuntimeError(
+                f"Web search is currently unavailable: {exc}"
+            ) from exc
 
     return web_search_tool
 
@@ -883,6 +971,7 @@ def create_agents(llm: LLM, search_tool):
         allow_delegation=False,
         verbose=False,
     )
+
     writer = Agent(
         role="Content Writer",
         goal="Craft engaging blog posts about the AI industry",
@@ -892,6 +981,7 @@ def create_agents(llm: LLM, search_tool):
         allow_delegation=False,
         verbose=False,
     )
+
     return researcher, writer
 
 
@@ -901,15 +991,26 @@ def create_tasks(researcher: Agent, writer: Agent, query: str):
             "Search the web for the latest AI trends and provide a summarized report. "
             f"Focus on this topic: {query}"
         ),
-        expected_output="A summary of the top 3 trending developments in AI with insights on their impact.",
+        expected_output=(
+            "A summary of the top 3 trending developments in AI "
+            "with insights on their impact."
+        ),
         agent=researcher,
     )
+
     write_task = Task(
-        description="Write an engaging blog post about the AI industry based on the research analyst's summary.",
-        expected_output="A well-structured, 4-paragraph blog post in markdown format with simple, engaging content.",
+        description=(
+            "Write an engaging blog post about the AI industry "
+            "based on the research analyst's summary."
+        ),
+        expected_output=(
+            "A well-structured, 4-paragraph blog post in markdown "
+            "format with simple, engaging content."
+        ),
         agent=writer,
         context=[research_task],
     )
+
     return research_task, write_task
 
 
@@ -924,50 +1025,119 @@ def create_crew(agents, tasks) -> Crew:
 
 
 def run_crew(query: str):
-    """Build everything from the sidebar selection and run the crew asynchronously."""
-    llm = get_selected_llm()  # same LLM instance is shared by both agents
+    """
+    Build everything from the sidebar selection and run the crew.
+
+    Search errors and LLM errors are allowed to propagate to the main
+    error handler instead of being converted into fake research output.
+    """
+
+    llm = get_selected_llm()
+
     search_tool = create_web_search_tool()
-    researcher, writer = create_agents(llm, search_tool)
-    research_task, write_task = create_tasks(researcher, writer, query)
-    crew = create_crew((researcher, writer), (research_task, write_task))
 
-    result = asyncio.run(crew.kickoff_async())
+    researcher, writer = create_agents(
+        llm,
+        search_tool,
+    )
 
-    research_text = research_task.output.raw if research_task.output else ""
-    blog_text = getattr(result, "raw", None) or str(result)
+    research_task, write_task = create_tasks(
+        researcher,
+        writer,
+        query,
+    )
+
+    crew = create_crew(
+        (researcher, writer),
+        (research_task, write_task),
+    )
+
+    result = asyncio.run(
+        crew.kickoff_async()
+    )
+
+    research_text = (
+        research_task.output.raw
+        if research_task.output
+        else ""
+    )
+
+    blog_text = (
+        getattr(result, "raw", None)
+        or str(result)
+    )
+
     return research_text, blog_text
 
 
 def save_blog(content: str) -> Path:
-    BLOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    BLOG_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     cleaned = content.strip()
-    if cleaned.startswith("```"):  # strip accidental ```markdown fences
+
+    if cleaned.startswith("```"):
         lines = cleaned.splitlines()
         lines = lines[1:]
+
         if lines and lines[-1].strip().startswith("```"):
             lines = lines[:-1]
+
         cleaned = "\n".join(lines).strip()
-    BLOG_PATH.write_text(cleaned, encoding="utf-8")
+
+    BLOG_PATH.write_text(
+        cleaned,
+        encoding="utf-8",
+    )
+
     return BLOG_PATH
 
 
 def render_results():
-    if not st.session_state.research_result and not st.session_state.blog_result:
+    if (
+        not st.session_state.research_result
+        and not st.session_state.blog_result
+    ):
         return
+
     st.markdown("### Research Summary")
-    with st.container(border=True, key="research_summary_box"):
-        st.markdown(st.session_state.research_result or "_No research output._")
+
+    with st.container(
+        border=True,
+        key="research_summary_box",
+    ):
+        st.markdown(
+            st.session_state.research_result
+            or "_No research output._"
+        )
 
     st.markdown("### AI Generated Blog Post")
-    with st.container(border=True, key="blog_post_box"):
-        st.markdown(st.session_state.blog_result or "_No blog output._")
+
+    with st.container(
+        border=True,
+        key="blog_post_box",
+    ):
+        st.markdown(
+            st.session_state.blog_result
+            or "_No blog output._"
+        )
 
     if st.session_state.save_error:
-        st.warning("The blog could not be saved to disk, but you can still download it below.")
+        st.warning(
+            "The blog could not be saved to disk, but you can still download it below."
+        )
+
         with st.expander("Technical details"):
-            st.code(st.session_state.save_error)
+            st.code(
+                st.session_state.save_error
+            )
+
     else:
-        st.caption(f"Saved to `{BLOG_PATH.as_posix()}`")
+        st.caption(
+            f"Saved to `{BLOG_PATH.as_posix()}`"
+        )
 
     st.download_button(
         "Download Markdown",
@@ -982,12 +1152,20 @@ def render_results():
 # ----------------------------------------------------------------------------
 def main():
     initialize_session_state()
-    st.markdown(CSS, unsafe_allow_html=True)
+
+    st.markdown(
+        CSS,
+        unsafe_allow_html=True,
+    )
+
     render_sidebar()
     render_header()
     render_workflow()
 
-    st.markdown("### What would you like to research?")
+    st.markdown(
+        "### What would you like to research?"
+    )
+
     with st.container(border=True):
         query = st.text_area(
             "Research topic",
@@ -995,39 +1173,122 @@ def main():
             height=130,
             label_visibility="collapsed",
         )
-        start = st.button("Start AI Research", key="start_research")
+
+        start = st.button(
+            "Start AI Research",
+            key="start_research",
+        )
 
     if start:
         provider = st.session_state.selected_provider
         model = st.session_state.selected_model
+
         if not provider or not model:
-            st.error("Please select a provider and a model.")
+            st.error(
+                "Please select a provider and a model."
+            )
+
         elif not current_api_key():
-            st.error("Please add your API key from the sidebar before starting the research.")
+            st.error(
+                "Please add your API key from the sidebar before starting the research."
+            )
+
         elif not query.strip():
-            st.warning("Please enter a research topic.")
+            st.warning(
+                "Please enter a research topic."
+            )
+
         else:
             st.session_state.research_result = ""
             st.session_state.blog_result = ""
             st.session_state.save_error = ""
+
             try:
-                with st.status("AI agents are working...", expanded=True) as status:
-                    st.write("**Market Research Analyst** — Status: Searching the web...")
-                    st.write("**Content Writer** — Status: Waiting for research...")
-                    research_text, blog_text = run_crew(query.strip())
-                    st.write("Research completed.")
-                    st.write("Blog generation completed.")
+                with st.status(
+                    "AI agents are working...",
+                    expanded=True,
+                ) as status:
+
+                    st.write(
+                        "**Market Research Analyst** — Status: Searching the web..."
+                    )
+
+                    st.write(
+                        "**Content Writer** — Status: Waiting for research..."
+                    )
+
+                    research_text, blog_text = run_crew(
+                        query.strip()
+                    )
+
+                    if not research_text.strip():
+                        raise RuntimeError(
+                            "Research completed without producing a valid research summary."
+                        )
+
+                    if not blog_text.strip():
+                        raise RuntimeError(
+                            "Blog generation completed without producing a valid blog post."
+                        )
+
+                    st.write(
+                        "Research completed."
+                    )
+
+                    st.write(
+                        "Blog generation completed."
+                    )
+
                     try:
                         save_blog(blog_text)
+
                     except Exception:
-                        st.session_state.save_error = traceback.format_exc()
-                    status.update(label="All agents finished", state="complete", expanded=False)
+                        st.session_state.save_error = (
+                            traceback.format_exc()
+                        )
+
+                    status.update(
+                        label="All agents finished",
+                        state="complete",
+                        expanded=False,
+                    )
+
                 st.session_state.research_result = research_text
                 st.session_state.blog_result = blog_text
-            except Exception:
-                st.error("Something went wrong while running the AI agents.")
+
+            except Exception as exc:
+                error_text = str(exc).lower()
+
+                if (
+                    "429" in error_text
+                    or "resource_exhausted" in error_text
+                    or "quota" in error_text
+                ):
+                    st.error(
+                        "Gemini API rate limit or quota has been reached. "
+                        "Please wait and try again, or switch to OpenAI from the sidebar."
+                    )
+
+                elif (
+                    "web search" in error_text
+                    or "dns" in error_text
+                    or "connection" in error_text
+                    or "network" in error_text
+                ):
+                    st.error(
+                        "Web search is currently unavailable due to a network or DNS issue. "
+                        "Please try again later."
+                    )
+
+                else:
+                    st.error(
+                        "Something went wrong while running the AI agents."
+                    )
+
                 with st.expander("Technical details"):
-                    st.code(traceback.format_exc())
+                    st.code(
+                        traceback.format_exc()
+                    )
 
     render_results()
 
